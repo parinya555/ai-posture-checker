@@ -5,6 +5,4 @@ Exercise Score System
 Dashboard Monitoring
 Evidence
 Demo Video Link: __________________
-GitHub Repository: __________________
-Screenshot Folder: __________________
-Presentation Slides: __________________
+
