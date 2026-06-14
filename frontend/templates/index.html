@@ -1,469 +1,314 @@
-
 <!DOCTYPE html>
 <html lang="th">
-
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FitSense AI Coach Pro</title>
 
-<title>FitSense AI Coach</title>
-
-<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
 <style>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
+<style>
+<style>
 body{
+    font-family:Arial,sans-serif;
     text-align:center;
-    font-family:Arial;
-    background:#111;
-    color:white;
+    background:#ddd;
+    color:#ddd;
+    margin:0;
+    padding:20px;
 }
 
 h1{
-    margin:10px;
+    color:#2563eb;
 }
 
 #canvas{
     width:100%;
-    max-width:400px;
+    max-width:450px;
+    background:#000;
     border-radius:12px;
-    display:block;
-    margin:auto;
-    background:black;
+    border:2px solid #ddd;
+    transform: scaleX(-1);
 }
 
 button{
-    padding:10px;
+    padding:10px 16px;
     margin:5px;
-    width:40%;
-    max-width:180px;
     border:none;
-    border-radius:10px;
-    font-size:16px;
+    border-radius:8px;
+    background:#2563eb;
+    color:white;
     cursor:pointer;
 }
 
-#description{
-    max-width:400px;
-    margin:auto;
-    padding:10px;
-    font-size:16px;
-    line-height:1.5;
-    color:#ddd;
+button:hover{
+    opacity:.9;
 }
 
+#description{
+    max-width:450px;
+    margin:auto;
+    color:#2e5077e9;
+}
+
+.info,
+#tutorialBox,
+#cameraGuide{
+    max-width:450px;
+    margin:10px auto;
+    padding:12px;
+    background:white;
+    border-radius:12px;
+    border:1px solid #ddd;
+}
+</style>
 </style>
 
 </head>
-
+</style>
+</head>
 <body>
 
-<h1>AI Fitness Coach</h1>
-
-<h2>
-Exercise:
-<span id="exercise">bicep</span>
-</h2>
-
-<h2>
-Reps:
-<span id="counter">0</span>
-</h2>
-
-<h3>
-Stage:
-<span id="stage">down</span>
-</h3>
-
-<!-- คำอธิบายท่า -->
-<p id="description">
-
-Bicep Curl:
-งอแขนขึ้นลง เพื่อฝึกกล้ามเนื้อแขนหน้า
-ช่วยเพิ่มความแข็งแรงของแขนและการจับยก
-
+<h1>AI Fitness Coach Pro</h1>
+<div id="tutorialBox" style="max-width:450px;margin:10px auto;padding:10px;background:#1e1e1e;border-radius:10px">
+<h3> Exercise Tutorial</h3>
+<p id="tutorial"></p>
+<div id="cameraGuide" style="max-width:450px;margin:10px auto;padding:10px;background:#1e1e1e;border-radius:10px">
+<h3> Camera Position Guide</h3>
+<p>
+• วางกล้องห่าง 1.5–2.5 เมตร<br>
+• ให้เห็นร่างกายครบทั้งตัว<br>
+• ยืนตรงกลางภาพ<br>
+• หลีกเลี่ยงแสงย้อน<br>
+• ใช้พื้นที่ที่มีแสงสว่างเพียงพอ
 </p>
+</div>
+</div>
+<div class="info">Exercise: <span id="exercise">bicep</span></div>
+<div class="info">Reps: <span id="counter">0</span></div>
+<div class="info">Stage: <span id="stage">down</span></div>
+<div class="info">Tracking: <span id="quality">Waiting...</span></div>
 
-<!-- video hidden -->
-<video
-    id="video"
-    autoplay
-    playsinline
-    muted
-    style="display:none;">
-</video>
+<p id="description"></p>
 
+
+
+<video id="video" autoplay playsinline muted hidden></video>
 <canvas id="canvas"></canvas>
-
-<br>
-
-<button onclick="setExercise('bicep')">
-Bicep
-</button>
-
-<button onclick="setExercise('shoulder')">
-Shoulder
-</button>
-
-<button onclick="setExercise('lateral')">
-Lateral
-</button>
-
-<button onclick="setExercise('squat')">
-Squat
-</button>
 
 <br><br>
 
-<button onclick="startCamera()">
-📷 Start Camera
-</button>
+<button onclick="setExercise('bicep')">Bicep</button>
+<button onclick="setExercise('shoulder')">Shoulder</button>
+<button onclick="setExercise('lateral')">Lateral</button>
+<button onclick="setExercise('squat')">Squat</button>
+
+<br><br>
+
+<button onclick="startCamera()"> Start Camera</button>
 
 <script>
+const $=id=>document.getElementById(id);
 
-// =========================
-// ตัวแปร
-// =========================
+const EX={
+ bicep:{
+   desc:"Bicep Curl - งอแขนขึ้นลง",
+   p:[12,14,16],
+   up:45,
+   down:155
+ },
+ shoulder:{
+   desc:"Shoulder Press - ดันแขนเหนือศีรษะ",
+   p:[12,14,16],
+   up:70,
+   down:150
+ },
+ lateral:{
+   desc:"Lateral Raise - ยกแขนด้านข้าง",
+   p:[11,13,15],
+   up:80,
+   down:145
+ },
+ squat:{
+   desc:"Squat - ย่อตัวและลุกขึ้น",
+   p:[23,25,27],
+   up:95,
+   down:165,
+   reverse:true
+ }
+};
 
-let exercise = "bicep";
-let counter = 0;
-let stage = "down";
-
-// =========================
-// เปลี่ยนท่า
-// =========================
+let exercise="bicep";
+let counter=0;
+let stage="down";
+let smoothAngle=0;
+let lastRepTime=0;
 
 function setExercise(name){
+ exercise=name;
+ counter=0;
+ stage="down";
 
-    exercise = name;
+ const tutorials={
+   bicep:"งอแขนขึ้นจนสุด แล้วลดลงช้า ๆ รักษาหลังให้ตรง แนะนำ 10-15 ครั้ง",
+   shoulder:"ดันแขนขึ้นเหนือศีรษะและลดลงอย่างควบคุม ไม่แอ่นหลัง",
+   lateral:"ยกแขนด้านข้างจนระดับหัวไหล่ แล้วลดลงช้า ๆ",
+   squat:"ย่อตัวโดยให้หลังตรง เข่าไม่เลยปลายเท้ามากเกินไป"
+ };
 
-    counter = 0;
-
-    stage = "down";
-
-    document.getElementById("exercise").innerText = name;
-
-    // คำอธิบายแต่ละท่า
-    let desc = "";
-
-    // =====================
-    // BICEP
-    // =====================
-
-    if(name === "bicep"){
-
-        desc = `
-        Bicep Curl:
-        งอแขนขึ้นลง เพื่อฝึกกล้ามเนื้อแขนหน้า
-        ช่วยเพิ่มความแข็งแรงของแขนและการจับยก
-        `;
-    }
-
-    // =====================
-    // SHOULDER
-    // =====================
-
-    else if(name === "shoulder"){
-
-        desc = `
-        Shoulder Press:
-        ดันแขนขึ้นเหนือศีรษะ
-        ช่วยฝึกกล้ามเนื้อหัวไหล่และต้นแขน
-        `;
-    }
-
-    // =====================
-    // LATERAL
-    // =====================
-
-    else if(name === "lateral"){
-
-        desc = `
-        Lateral Raise:
-        ยกแขนออกด้านข้าง
-        ช่วยเพิ่มความกว้างและความแข็งแรงของหัวไหล่
-        `;
-    }
-
-    // =====================
-    // SQUAT
-    // =====================
-
-    else if(name === "squat"){
-
-        desc = `
-        Squat:
-        ย่อตัวลงและลุกขึ้น
-        ช่วยฝึกต้นขา สะโพก และก้น
-        `;
-    }
-
-    document.getElementById("description").innerText = desc;
+ $("exercise").textContent=name;
+ $("description").textContent=EX[name].desc;
+ $("tutorial").textContent=tutorials[name];
+ $("counter").textContent=0;
+ $("stage").textContent=stage;
 }
 
-// =========================
-// คำนวณมุม
-// =========================
+setExercise("bicep");
 
 function calcAngle(a,b,c){
-
-    let radians =
-        Math.atan2(c.y - b.y, c.x - b.x)
-        -
-        Math.atan2(a.y - b.y, a.x - b.x);
-
-    let angle = Math.abs(
-        radians * 180.0 / Math.PI
-    );
-
-    if(angle > 180){
-        angle = 360 - angle;
-    }
-
-    return angle;
+ let r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);
+ let d=Math.abs(r*180/Math.PI);
+ return d>180?360-d:d;
 }
 
-// =========================
-// MediaPipe Pose
-// =========================
-
-const pose = new Pose({
-
-    locateFile: (file) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+const pose=new Pose({
+ locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
 });
 
 pose.setOptions({
-
-    modelComplexity: 1,
-
-    smoothLandmarks: true,
-
-    minDetectionConfidence: 0.5,
-
-    minTrackingConfidence: 0.5
+ modelComplexity:1,
+ smoothLandmarks:true,
+ minDetectionConfidence:.6,
+ minTrackingConfidence:.6
 });
 
-pose.onResults(onResults);
+const video=$("video");
+const canvas=$("canvas");
+const ctx=canvas.getContext("2d");
 
-// =========================
-// canvas + video
-// =========================
+pose.onResults(r=>{
 
-const video = document.getElementById("video");
+ if(!r.image) return;
 
-const canvas = document.getElementById("canvas");
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.drawImage(
+    r.image,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+);
 
-const ctx = canvas.getContext("2d");
+ if(!r.poseLandmarks) return;
 
-// =========================
-// วาดผลลัพธ์
-// =========================
+ const lm=r.poseLandmarks;
 
-function onResults(results){
+ drawConnectors(ctx,lm,POSE_CONNECTIONS,{color:"#00FF00",lineWidth:3});
+ drawLandmarks(ctx,lm,{color:"#FF0000",lineWidth:1});
 
-    if(!results.image) return;
+ const quality=(
+   lm[11].visibility+
+   lm[12].visibility+
+   lm[13].visibility+
+   lm[14].visibility
+ )/4;
 
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+ $("quality").textContent=
+ quality>.85?"Excellent":
+ quality>.70?"Good":
+ quality>.50?"Fair":"Move Closer";
 
-    ctx.drawImage(
-        results.image,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
+ const e=EX[exercise];
 
-    if(!results.poseLandmarks) return;
+ if(
+   lm[e.p[0]].visibility<0.6 ||
+   lm[e.p[1]].visibility<0.6 ||
+   lm[e.p[2]].visibility<0.6
+ ){
+   return;
+ }
 
-    const lm = results.poseLandmarks;
+ const rawAngle=calcAngle(
+   lm[e.p[0]],
+   lm[e.p[1]],
+   lm[e.p[2]]
+ );
 
-    // =====================
-    // วาด skeleton
-    // =====================
+ smoothAngle=smoothAngle*0.8+rawAngle*0.2;
 
-    drawConnectors(
-        ctx,
-        lm,
-        POSE_CONNECTIONS,
-        {
-            color:"#00FF00",
-            lineWidth:4
-        }
-    );
+ const a=smoothAngle;
+ const now=Date.now();
 
-    drawLandmarks(
-        ctx,
-        lm,
-        {
-            color:"#FF0000",
-            lineWidth:2
-        }
-    );
+ if(e.reverse){
 
-    // =====================
-    // Counter
-    // =====================
+   if(a>e.down) stage="up";
 
-    let angle = 0;
+   if(
+      a<e.up &&
+      stage==="up" &&
+      now-lastRepTime>800
+   ){
+      stage="down";
+      counter++;
+      lastRepTime=now;
+   }
 
-    // BICEP
-    if(exercise === "bicep"){
+ }else{
 
-        angle = calcAngle(
-            lm[12],
-            lm[14],
-            lm[16]
-        );
+   if(a>e.down) stage="down";
 
-        if(angle > 160){
-            stage = "down";
-        }
+   if(
+      a<e.up &&
+      stage==="down" &&
+      now-lastRepTime>800
+   ){
+      stage="up";
+      counter++;
+      lastRepTime=now;
+   }
+ }
 
-        if(angle < 40 && stage === "down"){
-
-            stage = "up";
-
-            counter++;
-        }
-    }
-
-    // SHOULDER
-    else if(exercise === "shoulder"){
-
-        angle = calcAngle(
-            lm[12],
-            lm[14],
-            lm[16]
-        );
-
-        if(angle > 150){
-            stage = "down";
-        }
-
-        if(angle < 60 && stage === "down"){
-
-            stage = "up";
-
-            counter++;
-        }
-    }
-
-    // LATERAL
-    else if(exercise === "lateral"){
-
-        angle = calcAngle(
-            lm[11],
-            lm[13],
-            lm[15]
-        );
-
-        if(angle > 150){
-            stage = "down";
-        }
-
-        if(angle < 70 && stage === "down"){
-
-            stage = "up";
-
-            counter++;
-        }
-    }
-
-    // SQUAT
-    else if(exercise === "squat"){
-
-        const knee = calcAngle(
-            lm[23],
-            lm[25],
-            lm[27]
-        );
-
-        if(knee > 160){
-            stage = "up";
-        }
-
-        if(knee < 90 && stage === "up"){
-
-            stage = "down";
-
-            counter++;
-        }
-    }
-
-    // =====================
-    // update UI
-    // =====================
-
-    document.getElementById("counter").innerText = counter;
-
-    document.getElementById("stage").innerText = stage;
-}
-
-// =========================
-// เปิดกล้อง
-// =========================
+ $("counter").textContent=counter;
+ $("stage").textContent=stage;
+});
 
 async function startCamera(){
 
-    try{
+ try{
 
-        // ขอ permission กล้อง
-        const stream =
-            await navigator.mediaDevices.getUserMedia({
+   const stream=await navigator.mediaDevices.getUserMedia({
+     video:{facingMode:"user"},
+     audio:false
+   });
 
-                video:{
-                    facingMode:"user"
-                },
+   video.srcObject=stream;
 
-                audio:false
-            });
+   video.onloadedmetadata=async()=>{
 
-        // ใส่ stream
-        video.srcObject = stream;
+      await video.play();
 
-        // รอโหลด metadata
-        video.onloadedmetadata = async () => {
+      canvas.width=video.videoWidth;
+      canvas.height=video.videoHeight;
 
-            // play video
-            await video.play();
+      const detect=async()=>{
+         await pose.send({image:video});
+         requestAnimationFrame(detect);
+      };
 
-            // set canvas size
-            canvas.width = video.videoWidth;
+      detect();
+   };
 
-            canvas.height = video.videoHeight;
-
-            // loop detection
-            async function detect(){
-
-                await pose.send({
-                    image: video
-                });
-
-                requestAnimationFrame(detect);
-            }
-
-            detect();
-
-            console.log("Camera started");
-        };
-
-    }
-    catch(err){
-
-        console.log(err);
-
-        alert(
-            "เปิดกล้องไม่ได้: "
-            + err.message
-        );
-    }
+ }catch(err){
+   alert("เปิดกล้องไม่ได้ : "+err.message);
+ }
 }
-
 </script>
-
 </body>
 </html>
+
 
